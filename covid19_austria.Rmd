@@ -1,0 +1,225 @@
+---
+title: "Covid19 Analysis of Austria by Using R"
+author: "[Azeem Khadam](azeem.khadam@uni-graz.at)"
+date: "October 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+
+## The package Tidyverse
+
+In this file we are going to analyse the Covid19 in Austria by using the statistical programming language [R](https://www.r-project.org/). In particular we use the package `tidyverse`. [Tidyverse](https://www.tidyverse.org/) is a package of packages of R that are designed to work well together. 
+First, here we activate `tidyverse` by using the `library` function. Since it is already installed in our system, otherwise we have to use the function `install.packages()` in order to install it first.
+
+```{r}
+library(tidyverse)
+```
+
+Although all above listed packages have their importance, but to do data analysis we mostly use
+`ggplot2`, `tidyr`, `readr` `dplyr` (since our data set, which we load below, is already tidy, we do even not use `tidyr`).
+
+## Loading the data set
+
+Now we load the data set. We specifically use the package `readr` and its function `read_csv2`. Note that in German notation, a comma `,` is used to separate the decimal part of a (rational) number (not the dot `.`). So the delimiter used by `csv` files is the semicolon `;` (not the usual `,`) and to read such a `csv` file the function `read_csv2` works perfectly well. Note that the function `read_csv` works for those `csv` files having dot `.` as a delimiter.
+
+```{r}
+covid <- read_csv2("CovidFaelle_Timeline.csv", col_types = cols(Time=col_date("%d.%m.%Y %H:%M:%S " )) )
+```
+
+**Note:** The source of data is the dashboard of [Austrian Agency of Health and Food Security](https://covid19-dashboard.ages.at).
+
+*Moreover, we are using the data uploaded on October 02, 2021.*
+
+## Dive into analysis...
+
+Let us look at the data table (which is in fact a `tibble`). Note that one of the advantage of having a `tibble` is that it shows us the dimension of the table as well as the data types of all the columns.
+
+```{r}
+covid
+```
+
+There are 12 columns in the table. Also, the above output shows us the first 10 rows of the data set. It is a data of February 26, 2020 and first 9 rows correspond to each State of Austria and the 10th row corresponds to Austria. We can even look at first 15 rows by using the function `head` and specifying number of rows by using the argument `n`.
+
+```{r}
+head(covid, n=15)
+```
+
+So the the rows from 11 to 15 are from 27.02.2020. This means the last 10 rows must be from today's data (hopefully!).
+
+```{r}
+tail(covid, n=10)
+```
+
+Well, it gives us the data from 01.10.2021 (the data for 25.09.2021 has not be uploaded yet).
+
+Why not to transform the names of columns into English, so that our non-German readers can also understand what is going on? :)
+
+Let us first see the names of all columns, and then translate them into English (we will also lower all the cases). This we do by using the function `rename` from the package `dplyr`.
+
+```{r}
+colnames(covid)
+
+covid <- rename(covid, time = Time, state = Bundesland, stateID = BundeslandID, number_residents = AnzEinwohner,
+       number_cases = AnzahlFaelle, total_number_cases = AnzahlFaelleSum, seven_days_number_cases = AnzahlFaelle7Tage, seven_days_incidence = SiebenTageInzidenzFaelle, daily_deaths = AnzahlTotTaeglich,
+       total_deaths = AnzahlTotSum, daily_recovered = AnzahlGeheiltTaeglich, total_recovered = AnzahlGeheiltSum )
+
+colnames(covid)
+```
+
+We now use `filter` function from `dplyr` to filter the data for whole of Austria (note that Austria's ID is 10).
+
+```{r}
+covid_austria <- filter(covid, stateID == 10)
+
+tail(covid_austria, n = 10)
+```
+
+Since we do not need the columns `state`, `stateID` and `number_residents` for further analysis, so we discard them by using the function `select`.
+
+```{r}
+covid_austria <- select( covid_austria, -(state:number_residents) )
+
+tail(covid_austria)
+```
+
+## Visualisation
+
+For the visulaisation we use the package `ggplot2`. We begin by drawing a line graph for whole of Austria.
+
+```{r}
+ggplot( data = covid_austria ) +
+  geom_line( mapping = aes( x = time, y = number_cases ), color = "blue" )
+
+```
+
+We can even give a title and change the name of the axes in the figure.
+
+```{r}
+ggplot( data = covid_austria ) +
+  geom_line( mapping = aes(x = time, y = number_cases), color = "blue" ) +
+  ggtitle( "Covid19 in Austria" ) +
+  xlab( "Time" ) +
+  ylab( "Number of Cases" )
+```
+
+We can even delete the name of x-axis, add a function `labs` which includes axes and title only in one line and a function `scale_x_date` which allows us to mention the other times than dates (in our case we use a break of 2 months and abbreviated months name).
+
+```{r}
+ggplot( data = covid_austria ) +
+  geom_line( mapping = aes(x = time, y = number_cases), color = "blue" ) +
+  labs( x = NULL, y = "Number of Cases", title = "Covid19 in Austria" ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b")
+```
+
+Here is a line graph of seven days incidence in Austria:
+
+```{r}
+ggplot( data = covid_austria ) +
+  geom_line( mapping = aes(x = time, y = seven_days_incidence), color = "blue" ) +
+  labs( x = NULL, y = "Seven Days Incidence", title = "Seven Days Incidence in Austria" ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b")
+```
+
+We can even combine two line graphs in one plane. Here are the line graphs of daily covid cases and daily recoveries.
+
+```{r}
+ggplot( data = covid_austria, mapping = aes( x = time ) ) +
+  geom_line( mapping = aes(y = number_cases, color = "Daily cases") ) +
+  geom_line( mapping = aes(y = daily_recovered, color = "Daily recoveries") ) +
+  ggtitle( "Covid19 in Austria" ) +
+  xlab( "Time" ) +
+  ylab( NULL )
+```
+
+We can even draw the bar chart:
+
+```{r}
+ggplot(data = covid_austria) +
+  geom_col(mapping = aes(x = time, y = number_cases), color = "orange") +
+  ggtitle("Daily Number of Cases in Austria")
+```
+
+Bar chart of daily deaths:
+
+```{r}
+ggplot(data = covid_austria) +
+  geom_col(mapping = aes(x = time, y = daily_deaths), color = "red") +
+  ggtitle("Daily Number of Deaths in Austria")
+```
+
+## The Pipe Operator
+
+From our main data set `covid`, we extracted another data set `covid_austria` in order to analyse data only for Austria. But this can be done without extracting and for this purpose the pipe operator `%>%` is extremely useful which has support from `tidyverse`. Here is some of above examples by using `%>%`.
+
+```{r}
+covid %>%
+  filter(stateID == 10) %>%
+  ggplot() +
+  geom_line( mapping = aes(x = time, y = seven_days_incidence), color = "blue" ) +
+  labs( x = NULL, y = "Seven Days Incidence", title = "Seven Days Incidence in Austria" ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b")
+```
+
+Daily deaths since March 2021:
+
+```{r}
+covid %>%
+  filter( stateID == 10, time >= "2021-03-01" ) %>%
+  ggplot() +
+  geom_col(mapping = aes(x = time, y = daily_deaths), color = "red") +
+  ggtitle("Daily Number of Deaths in Austria")
+```
+
+Let us do now an analysis of all the states of Austria.
+
+```{r}
+covid %>%
+  filter(stateID != 10) %>%
+  ggplot() +
+  geom_line( mapping = aes(x = time, y = number_cases, color = state) ) +
+  labs( x = NULL, y = "Number of Daily Cases", title = "Statewise Covid19 Analysis" ) +
+  scale_x_date(date_breaks = "3 month", date_labels = "%b")
+```
+
+Seven days incidence in Burgenland, Steiermark and Wien.
+
+
+```{r}
+covid %>%
+  filter(stateID %in% c(1,  6, 9)) %>%
+  ggplot() +
+  geom_line( mapping = aes(x = time, y = seven_days_incidence, color = state) ) +
+  labs( x = NULL, y = "Seven Days Incidence", title = "Seven Days Incidence in Burgenland, Steiermark and Wien" ) +
+  scale_x_date(date_breaks = "3 month", date_labels = "%b")
+```
+
+By using the function `facet_wrap` we can also view each layer of every State.
+```{r}
+covid %>%
+  filter(stateID != 10) %>%
+  ggplot() +
+  geom_line( mapping = aes(x = time, y = seven_days_incidence, color = state) ) +
+  labs( x = NULL, y = "Seven Days Incidence", title = "Seven Days Incidence in All States" ) +
+  scale_x_date(date_breaks = "3 month", date_labels = "%b") +
+  facet_wrap( ~ state, nrow = 3 )
+```
+```
+
+```{r}
+covid %>%
+  filter(stateID != 10) %>%
+  ggplot() +
+  geom_col( mapping = aes(x = time, y = seven_days_incidence, color = state) ) +
+  labs( x = NULL, y = "Seven Days Incidence", title = "Seven Days Incidence in All States" ) +
+  scale_x_date(date_breaks = "3 month", date_labels = "%b") +
+  facet_wrap( ~ state, nrow = 3 )
+```
+
+*Final note: If you would like to learn more about `tidyverse`, we recommend you to follow the course [Data wrangling in R using the Tidyverse](https://github.com/cbrnr/r_tidyverse) prepared by [Clemens Brunner](https://github.com/cbrnr)*.
+
+See you soon!
