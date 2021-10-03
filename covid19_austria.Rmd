@@ -208,7 +208,6 @@ covid %>%
   scale_x_date(date_breaks = "3 month", date_labels = "%b") +
   facet_wrap( ~ state, nrow = 3 )
 ```
-```
 
 ```{r}
 covid %>%
